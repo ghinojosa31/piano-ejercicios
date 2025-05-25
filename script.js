@@ -9,18 +9,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let osmd;
     let playbackManager;
 
-    // Inicializar OpenSheetMusicDisplay
     function initializeOSMD() {
         osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(osmdContainer, {
             autoResize: true,
-            backend: "svg", // "canvas" también es una opción
+            backend: "svg",
             drawTitle: true,
-            // Opciones de reproducción (pueden requerir configuración adicional para audio real)
-            drawingParameters: "compacttight", // o "default", "compact"
-            followCursor: true,
-            // pageFormat: "A4_P" // Puedes experimentar con formatos de página
+            drawingParameters: "compacttight",
+            followCursor: true, // Esencial para que el cursor siga la reproducción
+            // Intenta añadir esta configuración explícita del cursor:
+            cursorsOptions: [{
+                type: 0, // Cursor musical estándar
+                color: "purple", // Color para identificarlo visualmente
+                alpha: 0.8,
+                follow: true,
+                show_on_play: true
+            }]
         });
-        console.log("OSMD initialized");
+        console.log("OSMD initialized with cursor options.");
         statusMessages.textContent = "OSMD inicializado. Cargue un archivo MusicXML.";
     }
 
@@ -36,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         stopBtn.disabled = !enable;
     }
     
-    // Manejar la carga del archivo
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) {
@@ -44,30 +48,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         displayMessage(`Cargando archivo: ${file.name}...`);
-        enablePlaybackControls(false);
+        enablePlaybackControls(false); // Deshabilitar mientras se carga
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
                 await osmd.load(e.target.result);
-                osmd.render();
+                osmd.render(); // Esta función crea/actualiza el cursor
                 displayMessage(`Archivo "${file.name}" cargado y renderizado.`);
                 
-                // Inicializar PlaybackManager DESPUÉS de cargar y renderizar
-                // Esto crea el cursor.
-                playbackManager = osmd.cursor.playbackManager; 
-                if (!playbackManager) { // Para versiones más antiguas de OSMD o si el cursor no se creó
-                    // Intenta crear un PlaybackManager si no existe
-                    // Esto puede variar según la versión de OSMD, la documentación es clave.
-                    // Para versiones más recientes, suele estar asociado al cursor.
-                    console.warn("PlaybackManager no se encontró en osmd.cursor. Intentando alternativa...");
-                     // playbackManager = new OSMDPlayback.PlaybackManager(osmd.Sheet); // Esto es un ejemplo, revisar API OSMD
-                }
+                console.log("OSMD Object after render:", osmd);
+                console.log("OSMD Cursor Object after render:", osmd.cursor);
 
-                if (playbackManager) {
-                    enablePlaybackControls(true);
+                if (osmd.cursor) {
+                    playbackManager = osmd.cursor.playbackManager;
+                    if (playbackManager) {
+                        console.log("PlaybackManager encontrado:", playbackManager);
+                        enablePlaybackControls(true);
+                    } else {
+                        console.error("PlaybackManager NO encontrado en osmd.cursor, aunque osmd.cursor existe.");
+                        displayMessage(`Archivo cargado, pero la reproducción no está disponible (PlaybackManager ausente en cursor).`, true);
+                        enablePlaybackControls(false);
+                    }
                 } else {
-                    displayMessage(`Archivo cargado, pero la reproducción no está disponible.`, true);
+                    console.error("osmd.cursor es NULO o indefinido después de render().");
+                    displayMessage("Error: El cursor de OSMD no se pudo crear. La reproducción no estará disponible.", true);
+                    enablePlaybackControls(false);
                 }
 
             } catch (error) {
@@ -83,10 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     });
 
-    // Controles de reproducción
     playBtn.addEventListener('click', () => {
         if (playbackManager) {
+            console.log("Intentando reproducir...");
             playbackManager.play();
+        } else {
+            console.warn("Play intentado pero PlaybackManager no está disponible.");
         }
     });
 
@@ -99,10 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
     stopBtn.addEventListener('click', () => {
         if (playbackManager) {
             playbackManager.stop();
-            osmd.cursor.reset(); // Resetea el cursor al inicio
+            if (osmd.cursor) { // Asegurarse de que el cursor existe antes de resetearlo
+                 osmd.cursor.reset(); 
+            }
         }
     });
 
-    // Inicializar todo
     initializeOSMD();
 });
