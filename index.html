@@ -1,78 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Ejercicios de Piano - MusicXML con Audio</title>
-  <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.6.6/build/opensheetmusicdisplay.min.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2rem;
-    }
-    #osmd-container {
-      width: 100%;
-      max-width: 800px;
-      margin: auto;
-      border: 1px solid #ccc;
-      padding: 1rem;
-    }
-    button {
-      margin: 1rem;
-      padding: 0.5rem 1rem;
-      font-size: 16px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reproductor MusicXML para Piano</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Ejercicios de Piano</h1>
-  <input type="file" id="file-input" accept=".xml,.musicxml" />
-  <div id="osmd-container"></div>
-  <div id="controls" style="display:none;">
-    <button onclick="play()">▶️ Reproducir</button>
-    <button onclick="pause()">⏸️ Pausar</button>
-    <button onclick="stop()">⏹️ Detener</button>
-  </div>
+    <header>
+        <h1>Ejercicios de Piano - Reproductor MusicXML</h1>
+    </header>
 
-  <script>
-    const container = document.getElementById("osmd-container");
-    const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(container, {
-      drawTitle: true
-    });
+    <main>
+        <div class="controls">
+            <label for="fileInput">Cargar archivo MusicXML (.musicxml, .xml):</label>
+            <input type="file" id="fileInput" accept=".musicxml,.xml">
+        </div>
 
-    let audioPlayer;
+        <div id="playbackControls">
+            <button id="playBtn" disabled>▶️ Play</button>
+            <button id="pauseBtn" disabled>⏸️ Pause</button>
+            <button id="stopBtn" disabled>⏹️ Stop</button>
+        </div>
 
-    document.getElementById("file-input").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          await osmd.load(event.target.result);
-          await osmd.render();
+        <div id="osmdContainer">
+            <!-- Aquí se renderizará la partitura -->
+        </div>
+        <div id="statusMessages"></div>
+    </main>
 
-          // Activar controles de audio
-          document.getElementById("controls").style.display = "block";
+    <footer>
+        <p>Academia de Piano XYZ</p>
+    </footer>
 
-          // Crear AudioPlayer
-          audioPlayer = new osmd.AudioPlayer();
-          await audioPlayer.init();
-          await audioPlayer.loadScore(osmd);
-        };
-        reader.readAsText(file);
-      }
-    });
-
-    async function play() {
-      if (audioPlayer) await audioPlayer.play();
-    }
-
-    function pause() {
-      if (audioPlayer) audioPlayer.pause();
-    }
-
-    function stop() {
-      if (audioPlayer) audioPlayer.stop();
-    }
-  </script>
+    <!-- Incluir la biblioteca OpenSheetMusicDisplay (OSMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@latest/build/opensheetmusicdisplay.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
