@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
             drawTitle: true,
             drawingParameters: "compacttight",
             followCursor: true,
-            cursorsOptions: [{ // Mantener esto es bueno para la configuración explícita del cursor
+            cursorsOptions: [{
                 type: 0,
                 color: "purple",
                 alpha: 0.8,
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 show_on_play: true
             }]
         });
-        console.log("OSMD initialized with cursor options.");
+        console.log("OSMD initialized.");
         statusMessages.textContent = "OSMD inicializado. Cargue un archivo MusicXML.";
     }
 
@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         displayMessage(`Cargando archivo: ${file.name}...`);
         enablePlaybackControls(false);
+        playbackManager = null; // Resetear por si acaso
 
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -56,33 +57,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 osmd.render();
                 displayMessage(`Archivo "${file.name}" cargado y renderizado.`);
 
-                console.log("OSMD Object after render:", osmd);
-                console.log("OSMD Cursor Object after render:", osmd.cursor);
+                console.log("----------------------------------------------------");
+                console.log("INSPECCIÓN POST-RENDERIZACIÓN DE OSMD:");
+                console.log("Objeto OSMD principal:", osmd);
+                console.log("Claves de OSMD principal:", Object.keys(osmd));
+
+                if (osmd.cursors && osmd.cursors.length > 0) {
+                    console.log("Colección osmd.cursors (longitud):", osmd.cursors.length);
+                    console.log("Primer cursor (osmd.cursors[0]):", osmd.cursors[0]);
+                    // Asignamos osmd.cursor al primer cursor si no se hace automáticamente
+                    // osmd.cursor = osmd.cursors[0]; // Puede que no sea necesario si osmd.cursor ya apunta al correcto
+                }
+
+                console.log("Objeto osmd.cursor:", osmd.cursor);
                 if (osmd.cursor) {
                     console.log("Claves de osmd.cursor:", Object.keys(osmd.cursor));
+                    console.log("Objeto osmd.cursor.manager:", osmd.cursor.manager);
+                    if (osmd.cursor.manager) {
+                        console.log("Claves de osmd.cursor.manager:", Object.keys(osmd.cursor.manager));
+                        // HIPÓTESIS A: ¿Está el PM anidado aquí?
+                        // Ejemplo: if (osmd.cursor.manager.playbackController) playbackManager = osmd.cursor.manager.playbackController;
+                    }
                 }
+                console.log("----------------------------------------------------");
 
 
-                if (osmd.cursor && typeof osmd.cursor.manager !== 'undefined') { // Verifica que .manager exista
-                    playbackManager = osmd.cursor.manager; // ACCESO CORREGIDO
+                // INTENTO DE OBTENER PLAYBACKMANAGER
+                if (osmd.cursor && osmd.cursor.manager) {
+                    // Intenta diferentes posibilidades basadas en lo que veas en la consola:
+                    // playbackManager = osmd.cursor.manager; // Ya sabemos que esto no tiene .play()
+                    // playbackManager = osmd.cursor.manager.playback; // Si ves 'playback' dentro de manager
+                    // playbackManager = osmd.cursor.manager.player;   // Si ves 'player' dentro de manager
 
-                    if (playbackManager && typeof playbackManager.play === 'function') { // Verifica si tiene un método play
-                        console.log("PlaybackManager encontrado en osmd.cursor.manager:", playbackManager);
+                    // Por ahora, dejaremos playbackManager como null y lo reasignaremos si encontramos algo
+                    let potentialPM = osmd.cursor.manager; // El objeto que ya tenemos
+
+                    // Revisa si `potentialPM` (que es osmd.cursor.manager) tiene alguna propiedad que sea el PM
+                    // Esto es un bucle para buscar una propiedad con un método 'play'
+                    let foundPM = false;
+                    if (typeof potentialPM === 'object' && potentialPM !== null) {
+                        for (const key in potentialPM) {
+                            if (potentialPM.hasOwnProperty(key) && 
+                                typeof potentialPM[key] === 'object' && 
+                                potentialPM[key] !== null && 
+                                typeof potentialPM[key].play === 'function') {
+                                playbackManager = potentialPM[key];
+                                console.log(`PlaybackManager encontrado en osmd.cursor.manager.${key}`);
+                                foundPM = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!foundPM) {
+                         // Si sigue sin encontrarse, intenta directamente con el manager,
+                         // aunque ya sabemos que no tiene .play, quizás tenga otros métodos de control.
+                         // O quizás el `manager` ES el objeto que controla la reproducción, pero los métodos se llaman diferente.
+                         console.log("No se encontró una sub-propiedad de osmd.cursor.manager con un método .play().");
+                         console.log("Revisa la consola para ver los métodos disponibles en osmd.cursor.manager.");
+                         // playbackManager = osmd.cursor.manager; // Asignar de todas formas para ver si tiene pause/stop
+                    }
+
+
+                    if (playbackManager && typeof playbackManager.play === 'function') {
                         enablePlaybackControls(true);
                     } else {
-                        console.error("osmd.cursor.manager existe, PERO no parece ser un PlaybackManager válido (no tiene método play).");
-                        console.log("Contenido de osmd.cursor.manager:", osmd.cursor.manager);
-                        displayMessage(`Error: El objeto 'manager' del cursor no es un controlador de reproducción válido.`, true);
+                        console.error("FALLO FINAL: PlaybackManager aún no es válido o no se encontró un método .play().");
+                        displayMessage(`Error: El controlador de reproducción no se pudo inicializar correctamente.`, true);
                         enablePlaybackControls(false);
                     }
-                } else if (osmd.cursor) {
-                    console.error("osmd.cursor.manager es indefinido o no existe.");
-                    displayMessage(`Error: No se encontró 'manager' en el objeto cursor. La reproducción no estará disponible.`, true);
-                    enablePlaybackControls(false);
-                }
-                 else {
-                    console.error("osmd.cursor es NULO o indefinido después de render().");
-                    displayMessage("Error: El cursor de OSMD no se pudo crear. La reproducción no estará disponible.", true);
+
+                } else {
+                    displayMessage(`Error: osmd.cursor o osmd.cursor.manager no están definidos.`, true);
                     enablePlaybackControls(false);
                 }
 
@@ -99,19 +145,17 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsText(file);
     });
 
+    // ... (botones de play/pause/stop sin cambios por ahora, asumirán que playbackManager es correcto)
     playBtn.addEventListener('click', () => {
         if (playbackManager && typeof playbackManager.play === 'function') {
-            console.log("Intentando reproducir...");
             playbackManager.play();
-        } else {
-            console.warn("Play intentado pero PlaybackManager no está disponible o no es válido.");
-        }
+        } else { console.warn("Intento de play, pero PM no válido.");}
     });
 
     pauseBtn.addEventListener('click', () => {
         if (playbackManager && typeof playbackManager.pause === 'function') {
             playbackManager.pause();
-        }
+        } else { console.warn("Intento de pause, pero PM no válido.");}
     });
 
     stopBtn.addEventListener('click', () => {
@@ -120,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (osmd.cursor) {
                  osmd.cursor.reset();
             }
-        }
+        } else { console.warn("Intento de stop, pero PM no válido.");}
     });
 
     initializeOSMD();
