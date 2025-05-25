@@ -61,6 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("OSMD Cursor Object after render:", osmd.cursor);
 
                 if (osmd.cursor) {
+
+                console.log("Propiedades y métodos de osmd.cursor:", osmd.cursor); // Muestra el objeto entero
+                console.log("Claves de osmd.cursor:", Object.keys(osmd.cursor)); // Muestra los nombres de las propiedades
+
+                // También inspecciona el objeto osmd principal por si hay algo relacionado con playback
+                console.log("Propiedades y métodos de osmd:", osmd);
+                console.log("Claves de osmd:", Object.keys(osmd));
+                    
                     playbackManager = osmd.cursor.playbackManager;
                     if (playbackManager) {
                         console.log("PlaybackManager encontrado:", playbackManager);
